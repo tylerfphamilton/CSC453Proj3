@@ -2,7 +2,7 @@
 
 
 
-int main (int argc, char argv[]){
+int main (int argc, char* argv[]){
 
     // check the arguments
     if (argc > 4){
@@ -10,6 +10,8 @@ int main (int argc, char argv[]){
         return -1;
     }
 
+    (void) argv;
 
+    return 0;
 
 }
