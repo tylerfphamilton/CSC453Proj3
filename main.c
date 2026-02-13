@@ -1,6 +1,9 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <stdint.h>
+#include <string.h>
+#include <stdlib.h>
 
 int main (int argc, char* argv[]){
 
@@ -10,17 +13,55 @@ int main (int argc, char* argv[]){
         return -1;
     }
 
+    // checking the first argument
     char* filename = argv[1];
     int fd = open(filename, O_RDONLY);
 
     // check open() error
     if (fd == -1){
-        perror("There was an error opening the file\n");
+        perror("There was an error opening the file");
+        return -1;
     }
 
-    // next we are going to read from the descriptor
-    
+    // frames is within the bounds (can be up to 256, which is why I decided to make it uin16_t)
+    char* endptr;
+    unsigned long frames_32 = strtoul(argv[2], &endptr, 10);
+    uint16_t frames = (uint16_t) frames_32;
 
+    // checking the second argument
+    if (frames > 256 || frames < 1){
+        printf("Incrorrect number of frames, has to be between 1 and 256\n");
+        return -1;
+    }
+
+
+    // checking the third argument
+    char* pra = argv[3];
+    
+    if (strcmp(pra, "FIFO") == 0){
+
+        // call the function for FIFO
+
+
+    }
+    else if (strcmp(pra, "LRU") == 0){
+
+        // call the function for LRU
+        
+
+    }
+    else if (strcmp(pra, "OPT") == 0){
+
+        // call the function for OPT
+        
+
+    }
+    else {
+        printf("Need to put in a different PRA, must be either FIFO or LRU or OPT\n");
+        return -1;
+    }
+
+    printf("GOT NO ERRORS, NICE\n");
     return 0;
 
 }
