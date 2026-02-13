@@ -1,6 +1,6 @@
 #include <stdio.h>
-
-
+#include <unistd.h>
+#include <fcntl.h>
 
 int main (int argc, char* argv[]){
 
@@ -10,7 +10,16 @@ int main (int argc, char* argv[]){
         return -1;
     }
 
-    (void) argv;
+    char* filename = argv[1];
+    int fd = open(filename, O_RDONLY);
+
+    // check open() error
+    if (fd == -1){
+        perror("There was an error opening the file\n");
+    }
+
+    // next we are going to read from the descriptor
+    
 
     return 0;
 
