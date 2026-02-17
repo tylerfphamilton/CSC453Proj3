@@ -10,6 +10,9 @@
 // GLOBALS (I heart globals)
 
 tlb_entry TLB[16];
+int TLB_IDX = 0;
+
+
 page_entry PAGETABLE[256];
 uint8_t **MEMORY;
 
@@ -33,24 +36,38 @@ uint8_t **init_mem(uint16_t framenum) {
     return retval;
 }
 
+void tlb_insert(uint8_t page, uint8_t frame) {
+    TLB[TLB_IDX].valid = 1;
+    TLB[TLB_IDX].page_num = page;
+    TLB[TLB_IDX].frame_num = frame;
+    TLB_IDX = (TLB_IDX + 1) % 16;
+}
+
+
 
 int in_tlb(uint8_t *framenum , uint8_t page){
     for (int i = 0 ; i < 16 ; i++){
         if (TLB[i].valid && TLB[i].page_num == page){
-            *frame_num = TLB[i].frame_num;
+            *framenum = (uint8_t)TLB[i].frame_num;
+            TLB_HIT++;
             return 1;
         }
     }
-    TLB_HIT++;
-    *framenum = -1;
     return 0;
 }
 
 
-int in_pagetable(uint8_t *framenum , uint8_t page){
-    *framenum = -1;
-    return 0;
+int in_memory(uint8_t *framenum, uint8_t page) {
+    if (PAGETABLE[page].present) {
+        *framenum = (uint8_t)PAGETABLE[page].frame_num;
+        PAGE_HIT++;
+        tlb_insert(page , *framenum);
+        return 1;  
+    }
+    PAGE_FAULT++;
+    return 0;      
 }
+
 
 int take_from_store(uint8_t *framenum , uint8_t page , char *pra){
     if (strcmp(pra, "FIFO") == 0){
@@ -112,7 +129,7 @@ int main (int argc, char* argv[]){
         return -1;
     }
     MEMORY = init_mem(frames);
-    if (!MEMORY) return;
+    if (!MEMORY) return -1;
 
     // checking the third argument
     char* pra = argv[3];
@@ -129,11 +146,11 @@ int main (int argc, char* argv[]){
         uint8_t offset = addr & 0xFF;
 
         uint8_t framenum;
-
+        TOTAL++;
         if (!in_tlb(&framenum , page)) {
-            if (!in_pagetable(&framenum , page)) {
+            if (!in_memory(&framenum , page)) {
                 if (!take_from_store(&framenum , page ,pra)) {
-                    printf("not in memory, I'm crine 😭\n");
+                    printf("not in store, I'm crine 😭\n");
                     break;
                 }
             }
@@ -144,7 +161,7 @@ int main (int argc, char* argv[]){
         //print everything
         printf("%u,%d,%u,", addr, (int)sval, (unsigned)framenum);
         for (int i = 0; i < 256; i++) {
-            printf("%02X", MEMORY[frame_num][i]);
+            printf("%02X", MEMORY[framenum][i]);
         }
         printf("\n");
 
