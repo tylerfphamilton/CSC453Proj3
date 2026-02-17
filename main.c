@@ -21,7 +21,7 @@ uint8_t **MEMORY;
 int TOTAL = 0;
 int TLB_HIT = 0;
 int PAGE_HIT = 0;
-int PAGE_FAULT = 0
+int PAGE_FAULT = 0;
 
 
 
@@ -169,7 +169,7 @@ int main (int argc, char* argv[]){
 
 
     fclose(fp);
-    printf("GOT NO ERRORS, NICE\n");
+    // printf("GOT NO ERRORS, NICE\n");
     return 0;
 
 }
