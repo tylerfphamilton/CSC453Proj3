@@ -34,7 +34,6 @@ int main (int argc, char* argv[]){
         return -1;
     }
 
-
     // checking the third argument
     char* pra = argv[3];
     
@@ -65,3 +64,35 @@ int main (int argc, char* argv[]){
     return 0;
 
 }
+
+
+
+/*
+while (read reference sequence){
+
+    -parse line
+    -if (in tlb){
+        print line;
+        continue;
+    }
+    -if (in physical memory , check page table){
+        give page \n
+        continue
+    }
+    -say there was a page fault
+    -pull it up from store
+
+}
+
+
+page table
+
+[
+[logical , physical]
+[0 , 5]
+[1 , 3]
+[2 , 21]
+]
+
+
+*/
