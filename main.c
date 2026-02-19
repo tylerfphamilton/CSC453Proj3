@@ -4,10 +4,13 @@
 #include <stdint.h>
 #include <string.h>
 #include <stdlib.h>
+#include <sys/mman.h>
 
 #include "storages.h"
 
 // GLOBALS (I heart globals)
+
+char *PATH = "BACKING_STORE.bin";
 
 tlb_entry TLB[16];
 int TLB_IDX = 0;
@@ -15,24 +18,24 @@ int TLB_IDX = 0;
 
 page_entry PAGETABLE[256];
 uint8_t **MEMORY;
+int FRAMENUM = 0;
+int FIFO_IDX = 0;
+
+
+uint8_t *STORE = NULL;
 
 //gobals for stats
 
 int TOTAL = 0;
 int TLB_HIT = 0;
 int PAGE_HIT = 0;
-int PAGE_FAULT = 0
+int PAGE_FAULT = 0;
 
 
 
 uint8_t **init_mem(uint16_t framenum) {
-    uint8_t **retval = malloc(framenum * sizeof(*retval));
+    uint8_t **retval = malloc(framenum * sizeof(uint8_t *));
     if (!retval) return NULL;
-
-    for (uint16_t i = 0; i < framenum; i++) {
-        retval[i] = malloc(256 * sizeof(*retval[i]));
-        if (!retval[i]) return NULL;
-    }
     return retval;
 }
 
@@ -64,17 +67,34 @@ int in_memory(uint8_t *framenum, uint8_t page) {
         tlb_insert(page , *framenum);
         return 1;  
     }
-    PAGE_FAULT++;
+    PAGE_FAULT++; 
     return 0;      
 }
 
 
+//remove present bit from pagetable and TLB 
+void update_tables(uint8_t framenum){
+    for (int i = 0 ; i < 16 ; i++){
+        if (TLB[i].valid && TLB[i].frame_num == framenum){
+            TLB[i].valid = 0;
+        }
+    }
+
+    for (int j = 0 ; j < 256 ; j++){
+        if (PAGETABLE[j].present && PAGETABLE[j].frame_num == framenum){
+            PAGETABLE[j].present = 0;
+        }
+    }
+}
+
 int take_from_store(uint8_t *framenum , uint8_t page , char *pra){
+    //this if statement just chooses what frame we'll evict, because it's all the same after that.
+
     if (strcmp(pra, "FIFO") == 0){
-
-        // call the function for FIFO
-
-
+        // get framenumber (this is our fifo algoirthm)
+        MEMORY[FIFO_IDX] = STORE + (page * 256);
+        *framenum = FIFO_IDX; //update frame
+        FIFO_IDX = (FIFO_IDX + 1) % FRAMENUM;
     }
     else if (strcmp(pra, "LRU") == 0){
 
@@ -85,20 +105,22 @@ int take_from_store(uint8_t *framenum , uint8_t page , char *pra){
     else if (strcmp(pra, "OPT") == 0){
 
         // call the function for OPT
-        
-
     }
     else {
-        printf("Need to put in a different PRA, must be either FIFO or LRU or OPT\n");
-        return -1;
+        printf("Need to put in a different PRA, must be either FIFO or LRU or OPT \n");
+        return 0;
     }
-    *framenum = -1;
-    return 0;
-}
 
-int get_frame_from_mem(uint8_t framenum){
+    //remove old copies in frame
+    update_tables(*framenum);
+    //update pagetable
+    PAGETABLE[page].present = 1;
+    PAGETABLE[page].frame_num = *framenum;
 
-    return 0;
+    //update tlb
+    tlb_insert(page , (uint8_t) *framenum);
+
+    return 1;
 }
 
 
@@ -114,7 +136,7 @@ int main (int argc, char* argv[]){
     char* filename = argv[1];
     FILE *fp = fopen(filename, "r"); //used stream because it's easier
     if (!fp) {
-        perror("Error opening reference file");
+        perror("Error opening reference file, I'm crine 😭");
         exit(EXIT_FAILURE);
     }
 
@@ -125,14 +147,32 @@ int main (int argc, char* argv[]){
 
     // checking the second argument
     if (frames > 256 || frames < 1){
-        printf("Incrorrect number of frames, has to be between 1 and 256\n");
+        printf("Incrorrect number of frames, has to be between 1 and 256, I'm crine 😭\n");
         return -1;
     }
     MEMORY = init_mem(frames);
+    FRAMENUM = frames;
     if (!MEMORY) return -1;
 
     // checking the third argument
     char* pra = argv[3];
+
+
+    //opening the store and mmaping it so we can access without a syscall
+    int fd = open("BACKING_STORE.bin", O_RDONLY);
+    if (fd < 0) {
+        perror("open");
+        exit(1);
+    }
+    uint8_t *backing_store = mmap(NULL, 65536, PROT_READ, MAP_PRIVATE, fd, 0);
+
+    if (backing_store == MAP_FAILED) {
+        perror("mmap");
+        exit(1);
+    }
+
+
+    STORE = backing_store;
 
     //MAIN LOOP - itirate through each sequence
 
@@ -151,7 +191,7 @@ int main (int argc, char* argv[]){
             if (!in_memory(&framenum , page)) {
                 if (!take_from_store(&framenum , page ,pra)) {
                     printf("not in store, I'm crine 😭\n");
-                    break;
+                    return -1;
                 }
             }
         }
@@ -167,9 +207,17 @@ int main (int argc, char* argv[]){
 
     }
 
+    printf("Number of Translated Addresses = %d\n", TOTAL);
+    printf("Page Faults = %d\n", PAGE_FAULT);
+    printf("Page Fault Rate = %.3f\n", TOTAL ? (double)PAGE_FAULT / TOTAL : 0.0);
+    printf("TLB Hits = %d\n", TLB_HIT);
+    printf("TLB Misses = %d\n", TOTAL - TLB_HIT);
+    printf("TLB Hit Rate = %.3f\n", TOTAL ? (double)TLB_HIT / TOTAL : 0.0);
+
+
 
     fclose(fp);
-    printf("GOT NO ERRORS, NICE\n");
+    printf("GOT NO ERRORS, NICE, I'm crine 😭\n");
     return 0;
 
 }
