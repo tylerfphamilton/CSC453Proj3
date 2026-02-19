@@ -30,7 +30,6 @@ int TOTAL = 0;
 int TLB_HIT = 0;
 int PAGE_HIT = 0;
 int PAGE_FAULT = 0;
-int PAGE_FAULT = 0;
 
 
 
