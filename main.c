@@ -17,7 +17,7 @@ int TLB_IDX = 0;
 
 
 page_entry PAGETABLE[256];
-uint8_t **MEMORY;
+frame_entry *MEMORY;
 int FRAMENUM = 0;
 int FIFO_IDX = 0;
 
@@ -33,10 +33,13 @@ int PAGE_FAULT = 0;
 
 
 
-uint8_t **init_mem(uint16_t framenum) {
-    uint8_t **retval = malloc(framenum * sizeof(uint8_t *));
-    if (!retval) return NULL;
-    return retval;
+frame_entry *init_mem(uint16_t framenum) {
+    frame_entry *m = calloc(framenum, sizeof(*m));
+    if (!m) return NULL;
+    for (int i = 0 ; i < framenum ; i++){
+        m[i].count = -1;
+    }
+    return m;
 }
 
 void tlb_insert(uint8_t page, uint8_t frame) {
@@ -87,24 +90,54 @@ void update_tables(uint8_t framenum){
     }
 }
 
+void next_use(uint8_t page ,uint8_t frame, int cur , sequence *commands, int size){
+    for (int y = cur + 1; y < size ; y++){
+        if (commands[y].page == page){
+            MEMORY[frame].count = y - cur;
+        }
+        MEMORY[frame].count = -1;
+    }
+}
+
 int take_from_store(uint8_t *framenum , uint8_t page , char *pra){
     //this if statement just chooses what frame we'll evict, because it's all the same after that.
 
     if (strcmp(pra, "FIFO") == 0){
         // get framenumber (this is our fifo algoirthm)
-        MEMORY[FIFO_IDX] = STORE + (page * 256);
+        frame_entry tyler = {STORE + (page * 256) , 0};
+        MEMORY[FIFO_IDX] = tyler;
         *framenum = FIFO_IDX; //update frame
         FIFO_IDX = (FIFO_IDX + 1) % FRAMENUM;
     }
     else if (strcmp(pra, "LRU") == 0){
 
         // call the function for LRU
-        
-
+        int biggest = -1;
+        for (int j = 0 ; j < FRAMENUM ; j++){
+            if (MEMORY[j].count > biggest){
+                biggest = MEMORY[j].count;
+                *framenum = (uint8_t) j;
+            }
+        }
+        frame_entry tyler = {STORE + (page * 256) , 0};
+        MEMORY[*framenum] = tyler;
     }
     else if (strcmp(pra, "OPT") == 0){
-
         // call the function for OPT
+        int biggest = -1;
+        for (int j = 0 ; j < FRAMENUM ; j++){
+            if (MEMORY[j].count == -1){
+                *framenum = (uint8_t) j;
+                break;
+            }
+            if (MEMORY[j].count > biggest){
+                biggest = MEMORY[j].count;
+                *framenum = (uint8_t) j;
+            }
+        }
+        frame_entry tyler = {STORE + (page * 256) , 0};
+        MEMORY[*framenum] = tyler;
+
     }
     else {
         printf("Need to put in a different PRA, must be either FIFO or LRU or OPT \n");
@@ -139,6 +172,20 @@ int main (int argc, char* argv[]){
         perror("Error opening reference file, I'm crine 😭");
         exit(EXIT_FAILURE);
     }
+    int size = 0;
+    char line[100];
+    while (fgets(line, sizeof(line), fp)) {size ++;}
+    rewind(fp);
+    sequence commands[size];
+    for (int p = 0 ; p < size ; p++){
+        if (!fgets(line, sizeof(line), fp)) return -1;
+        long logical_address = strtol(line, NULL , 10);
+        uint16_t addr = (uint16_t)(logical_address & 0xFFFF);
+        uint8_t page   = (addr >> 8) & 0xFF;
+        uint8_t offset = addr & 0xFF;
+        commands[p] = (sequence) {addr , page , offset};
+    }
+
 
     // frames is within the bounds (can be up to 256, which is why I decided to make it uin16_t)
     char* endptr;
@@ -158,6 +205,8 @@ int main (int argc, char* argv[]){
     char* pra = argv[3];
 
 
+
+
     //opening the store and mmaping it so we can access without a syscall
     int fd = open("BACKING_STORE.bin", O_RDONLY);
     if (fd < 0) {
@@ -174,16 +223,22 @@ int main (int argc, char* argv[]){
 
     STORE = backing_store;
 
+
+    //this is for LRU
+    if (strcmp(pra, "LRU") == 0){
+        for (int t = 0 ; t < FRAMENUM ; t++){
+            MEMORY[t].count += 2;
+        }
+    }
+
     //MAIN LOOP - itirate through each sequence
 
-    char line[64];  //should be more than enough and go up to the newline
-    while (fgets(line, sizeof(line), fp)) {
+    for (int c = 0 ; c < size ; c++) {
         //extract actual sequence data (parsing)
+        uint8_t addr = commands[c].addr;
+        uint8_t page = commands[c].page;
+        uint8_t offset = commands[c].offset;
 
-        long logical_address = strtol(line, NULL , 10);
-        uint16_t addr = (uint16_t)(logical_address & 0xFFFF);
-        uint8_t page   = (addr >> 8) & 0xFF;
-        uint8_t offset = addr & 0xFF;
 
         uint8_t framenum;
         TOTAL++;
@@ -195,15 +250,27 @@ int main (int argc, char* argv[]){
                 }
             }
         }
-        uint8_t *frame = MEMORY[framenum]; //this is the page, yay.
+        uint8_t *frame = MEMORY[framenum].store_ptr; //this is the page, yay.
         int8_t sval  = (int8_t)frame[offset];
 
         //print everything
         printf("%u,%d,%u,", addr, (int)sval, (unsigned)framenum);
         for (int i = 0; i < 256; i++) {
-            printf("%02X", MEMORY[framenum][i]);
+            printf("%02X", (MEMORY[framenum].store_ptr)[i]);
         }
         printf("\n");
+
+        if (strcmp(pra, "LRU") == 0){
+            MEMORY[framenum].count = 0;
+            for (int t = 0 ; t < FRAMENUM ; t++){
+                MEMORY[t].count++;
+            }
+        } else if (strcmp(pra, "OPT") == 0){
+            next_use(page , framenum , c , commands, size);
+            for (int t = 0 ; t < FRAMENUM ; t++){
+                MEMORY[t].count--;
+            }
+        }
 
     }
 

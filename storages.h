@@ -11,3 +11,15 @@ typedef struct {
     uint8_t present;    
     int16_t frame_num; 
 } page_entry;
+
+typedef struct {
+    uint8_t *store_ptr;
+    int count;
+} frame_entry;
+
+
+typedef struct {
+    uint8_t addr;
+    uint8_t page;
+    uint8_t offset;
+} sequence;
