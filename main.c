@@ -91,11 +91,12 @@ void update_tables(uint8_t framenum){
 }
 
 void next_use(uint8_t page ,uint8_t frame, int cur , sequence *commands, int size){
+    MEMORY[frame].count = -1;
     for (int y = cur + 1; y < size ; y++){
         if (commands[y].page == page){
             MEMORY[frame].count = y - cur;
+            return;
         }
-        MEMORY[frame].count = -1;
     }
 }
 
@@ -235,7 +236,7 @@ int main (int argc, char* argv[]){
 
     for (int c = 0 ; c < size ; c++) {
         //extract actual sequence data (parsing)
-        uint8_t addr = commands[c].addr;
+        uint16_t addr = commands[c].addr;
         uint8_t page = commands[c].page;
         uint8_t offset = commands[c].offset;
 
@@ -268,7 +269,9 @@ int main (int argc, char* argv[]){
         } else if (strcmp(pra, "OPT") == 0){
             next_use(page , framenum , c , commands, size);
             for (int t = 0 ; t < FRAMENUM ; t++){
-                MEMORY[t].count--;
+                if (MEMORY[t].count != -1){
+                    MEMORY[t].count--;
+                }
             }
         }
 

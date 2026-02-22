@@ -19,7 +19,7 @@ typedef struct {
 
 
 typedef struct {
-    uint8_t addr;
+    uint16_t addr;
     uint8_t page;
     uint8_t offset;
 } sequence;
