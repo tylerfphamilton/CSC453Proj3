@@ -9,7 +9,7 @@
 #include "storages.h"
 
 // made TLB Size into a macro for testing
-#define TLB_SIZE 16
+#define TLB_SIZE 3
 
 // GLOBALS (I heart globals)
 
