@@ -108,8 +108,8 @@ int take_from_store(uint8_t *framenum , uint8_t page , char *pra){
 
     if (strcmp(pra, "FIFO") == 0){
         // get framenumber (this is our fifo algoirthm)
-        frame_entry tyler = {STORE + (page * 256) , 0};
-        MEMORY[FIFO_IDX] = tyler;
+        frame_entry new_frame = {STORE + (page * 256) , 0};
+        MEMORY[FIFO_IDX] = new_frame;
         *framenum = FIFO_IDX; //update frame
         FIFO_IDX = (FIFO_IDX + 1) % FRAMENUM;
     }
@@ -123,8 +123,8 @@ int take_from_store(uint8_t *framenum , uint8_t page , char *pra){
                 *framenum = (uint8_t) j;
             }
         }
-        frame_entry tyler = {STORE + (page * 256) , 0};
-        MEMORY[*framenum] = tyler;
+        frame_entry new_frame = {STORE + (page * 256) , 0};
+        MEMORY[*framenum] = new_frame;
     }
     else if (strcmp(pra, "OPT") == 0){
         // call the function for OPT
@@ -139,8 +139,8 @@ int take_from_store(uint8_t *framenum , uint8_t page , char *pra){
                 *framenum = (uint8_t) j;
             }
         }
-        frame_entry tyler = {STORE + (page * 256) , 0};
-        MEMORY[*framenum] = tyler;
+        frame_entry new_frame = {STORE + (page * 256) , 0};
+        MEMORY[*framenum] = new_frame;
 
     }
     else {
