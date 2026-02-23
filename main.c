@@ -8,11 +8,14 @@
 
 #include "storages.h"
 
+// made TLB Size into a macro for testing
+#define TLB_SIZE 16
+
 // GLOBALS (I heart globals)
 
 char *PATH = "BACKING_STORE.bin";
 
-tlb_entry TLB[16];
+tlb_entry TLB[TLB_SIZE];
 int TLB_IDX = 0;
 
 
@@ -46,13 +49,13 @@ void tlb_insert(uint8_t page, uint8_t frame) {
     TLB[TLB_IDX].valid = 1;
     TLB[TLB_IDX].page_num = page;
     TLB[TLB_IDX].frame_num = frame;
-    TLB_IDX = (TLB_IDX + 1) % 16;
+    TLB_IDX = (TLB_IDX + 1) % TLB_SIZE;
 }
 
 
 
 int in_tlb(uint8_t *framenum , uint8_t page){
-    for (int i = 0 ; i < 16 ; i++){
+    for (int i = 0 ; i < TLB_SIZE ; i++){
         if (TLB[i].valid && TLB[i].page_num == page){
             *framenum = (uint8_t)TLB[i].frame_num;
             TLB_HIT++;
@@ -77,7 +80,7 @@ int in_memory(uint8_t *framenum, uint8_t page) {
 
 //remove present bit from pagetable and TLB 
 void update_tables(uint8_t framenum){
-    for (int i = 0 ; i < 16 ; i++){
+    for (int i = 0 ; i < TLB_SIZE ; i++){
         if (TLB[i].valid && TLB[i].frame_num == framenum){
             TLB[i].valid = 0;
         }
@@ -284,42 +287,9 @@ int main (int argc, char* argv[]){
     printf("TLB Misses = %d\n", TOTAL - TLB_HIT);
     printf("TLB Hit Rate = %.3f\n", TOTAL ? (double)TLB_HIT / TOTAL : 0.0);
 
-
-
     fclose(fp);
-    printf("GOT NO ERRORS, NICE, I'm crine 😭\n");
+    // printf("GOT NO ERRORS, NICE, I'm crine 😭\n");
     return 0;
 
 }
 
-
-
-/*
-while (read reference sequence){
-
-    -parse line
-    -if (in tlb){
-        print line;
-        continue;
-    }
-    -if (in physical memory , check page table){
-        give page \n
-        continue
-    }
-    -say there was a page fault
-    -pull it up from store
-
-}
-
-
-page table
-
-[
-[logical , physical]
-[0 , 5]
-[1 , 3]
-[2 , 21]
-]
-
-
-*/
