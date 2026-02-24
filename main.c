@@ -93,6 +93,7 @@ void update_tables(uint8_t framenum){
     }
 }
 
+//get next time a frame will be used (for OPT)
 void next_use(uint8_t page ,uint8_t frame, int cur , sequence *commands, int size){
     MEMORY[frame].count = -1;
     for (int y = cur + 1; y < size ; y++){
@@ -115,7 +116,7 @@ int take_from_store(uint8_t *framenum , uint8_t page , char *pra){
     }
     else if (strcmp(pra, "LRU") == 0){
 
-        // call the function for LRU
+        // look for the biggest number (least recently used)
         int biggest = -1;
         for (int j = 0 ; j < FRAMENUM ; j++){
             if (MEMORY[j].count > biggest){
@@ -127,7 +128,7 @@ int take_from_store(uint8_t *framenum , uint8_t page , char *pra){
         MEMORY[*framenum] = new_frame;
     }
     else if (strcmp(pra, "OPT") == 0){
-        // call the function for OPT
+        // look for biggest number (won't be used for the most time) or -1 (won't be used again)
         int biggest = -1;
         for (int j = 0 ; j < FRAMENUM ; j++){
             if (MEMORY[j].count == -1){
@@ -168,7 +169,7 @@ int main (int argc, char* argv[]){
         perror("There are more than 4 arguments, must be in: memSim <reference-sequence-file.txt> <FRAMES> <PRA> form\n");
         return -1;
     }
-
+    /* ========== FIRST ARGUMENT ==========*/
     // checking the first argument
     char* filename = argv[1];
     FILE *fp = fopen(filename, "r"); //used stream because it's easier
@@ -176,6 +177,8 @@ int main (int argc, char* argv[]){
         perror("Error opening reference file, I'm crine 😭");
         exit(EXIT_FAILURE);
     }
+
+    //because of OPT, we are going to read everything first, prase it, and put it in commands[]
     int size = 0;
     char line[100];
     while (fgets(line, sizeof(line), fp)) {size ++;}
@@ -196,6 +199,8 @@ int main (int argc, char* argv[]){
     unsigned long frames_32 = strtoul(argv[2], &endptr, 10);
     uint16_t frames = (uint16_t) frames_32;
 
+
+    /* ======= SECOND ARGUMENT =========*/
     // checking the second argument
     if (frames > 256 || frames < 1){
         printf("Incrorrect number of frames, has to be between 1 and 256, I'm crine 😭\n");
@@ -205,12 +210,12 @@ int main (int argc, char* argv[]){
     FRAMENUM = frames;
     if (!MEMORY) return -1;
 
+     /* ======= THIRD ARGUMENT =========*/
     // checking the third argument
+    
     char* pra = argv[3];
 
-
-
-
+    /* ======== OTHER SETUP =========*/
     //opening the store and mmaping it so we can access without a syscall
     int fd = open("BACKING_STORE.bin", O_RDONLY);
     if (fd < 0) {
@@ -223,8 +228,6 @@ int main (int argc, char* argv[]){
         perror("mmap");
         exit(1);
     }
-
-
     STORE = backing_store;
 
 
@@ -235,7 +238,7 @@ int main (int argc, char* argv[]){
         }
     }
 
-    //MAIN LOOP - itirate through each sequence
+    // =========== MAIN LOOP ========== - itirate through each sequence
 
     for (int c = 0 ; c < size ; c++) {
         //extract actual sequence data (parsing)
@@ -243,7 +246,7 @@ int main (int argc, char* argv[]){
         uint8_t page = commands[c].page;
         uint8_t offset = commands[c].offset;
 
-
+        //get our framenum
         uint8_t framenum;
         TOTAL++;
         if (!in_tlb(&framenum , page)) {
@@ -265,12 +268,15 @@ int main (int argc, char* argv[]){
         printf("\n");
 
         if (strcmp(pra, "LRU") == 0){
+            //every pass, add +1 to the time all pages were in frames
             MEMORY[framenum].count = 0;
             for (int t = 0 ; t < FRAMENUM ; t++){
                 MEMORY[t].count++;
             }
         } else if (strcmp(pra, "OPT") == 0){
+            //whenever we use a frame, calculate when next use is
             next_use(page , framenum , c , commands, size);
+            //remove -1 from all pages on every pass.
             for (int t = 0 ; t < FRAMENUM ; t++){
                 if (MEMORY[t].count != -1){
                     MEMORY[t].count--;
@@ -288,7 +294,6 @@ int main (int argc, char* argv[]){
     printf("TLB Hit Rate = %.3f\n", TOTAL ? (double)TLB_HIT / TOTAL : 0.0);
 
     fclose(fp);
-    // printf("GOT NO ERRORS, NICE, I'm crine 😭\n");
     return 0;
 
 }
